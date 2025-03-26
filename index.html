@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>손실기준 포지션규모 계산기</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            color: black; /* 기본 글씨 색상 검정색 */
+            border: 2px solid black; /* 검정색 테두리 */
+            background-color: white; /* 흰색 배경 */
+            cursor: pointer;
+            width: 48%;
+            margin: 1%;
+            font-weight: bold;
+            transition: background-color 0.3s, color 0.3s; /* 색상 전환 추가 */
+        }
+        /* 활성화된 버튼 스타일 */
+        button.active {
+            background-color: #4CAF50; /* 롱 포지션 버튼 활성화 시 초록색 */
+            color: white; /* 글씨 색상 흰색 */
+        }
+        #shortButton.active {
+            background-color: #f44336; /* 숏 포지션 버튼 활성화 시 빨간색 */
+            color: white; /* 글씨 색상 흰색 */
+        }
+        #calculateButton {
+            background-color: #FFCC80; /* 옅은 주황색 */
+            color: black;
+        }
+        #positionButtons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        #riskButtons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .warning {
+            color: red;
+            font-weight: bold;
+            font-size: smaller;
+            margin: 10px 0;
+        }
+        .result {
+            color: black; /* 결과 텍스트는 검정색 */
+        }
+    </style>
+</head>
+<body>
+    <h1>포지션 진입규모 계산기</h1>
+    
+    <label>포지션 종류:</label>
+    <div id="positionButtons">
+        <button id="longButton" onclick="selectPosition('long')" class="active">롱 포지션</button>
+        <button id="shortButton" onclick="selectPosition('short')">숏 포지션</button>
+    </div>
+
+    <label>감당 가능한 손실 기준 선택:</label>
+    <div id="riskButtons">
+        <button id="amountButton" onclick="selectRiskType('amount')" class="active">금액</button>
+        <button id="percentButton" onclick="selectRiskType('percent')">퍼센트</button>
+    </div>
+
+    <div id="riskAmountDiv">
+        <label for="riskAmount">감당 가능한 손실 (금액):</label>
+        <input type="number" id="riskAmount" placeholder="금액으로 입력">
+    </div>
+    
+    <div id="riskPercentDiv" style="display: none;">
+        <label for="riskPercent">또는 (퍼센트):</label>
+        <input type="number" id="riskPercent" placeholder="퍼센트로 입력">
+    </div>
+    
+    <label for="entryPrice">진입가:</label>
+    <input type="number" id="entryPrice" required>
+    
+    <label for="stopLoss">손절가:</label>
+    <input type="number" id="stopLoss" required>
+    
+    <label for="targetProfit">목표가:</label>
+    <input type="number" id="targetProfit" required>
+
+    <label for="leverage">레버리지:</label>
+    <div id="leverageDiv">
+        <input type="number" id="leverage" required>
+    </div>
+    
+    <button id="calculateButton" onclick="calculatePosition()">계산하기</button>
+
+    <h2>결과</h2>
+    <p class="warning">소수점에 주의!</p>
+    <p id="resultPosition" class="result"></p>
+
+    <script>
+        let selectedPosition = 'long'; // 기본값
+        let selectedRiskType = 'amount'; // 기본값
+
+        function selectPosition(position) {
+            selectedPosition = position;
+            document.getElementById("longButton").classList.toggle("active", position === 'long');
+            document.getElementById("shortButton").classList.toggle("active", position === 'short');
+        }
+
+        function selectRiskType(type) {
+            selectedRiskType = type;
+            document.getElementById("amountButton").classList.toggle("active", type === 'amount');
+            document.getElementById("percentButton").classList.toggle("active", type === 'percent');
+
+            if (type === 'amount') {
+                document.getElementById("riskAmountDiv").style.display = 'block';
+                document.getElementById("riskPercentDiv").style.display = 'none';
+                document.getElementById("leverageDiv").style.display = 'block'; // 레버리지 입력란 표시
+            } else {
+                document.getElementById("riskAmountDiv").style.display = 'none';
+                document.getElementById("riskPercentDiv").style.display = 'block';
+                document.getElementById("leverageDiv").style.display = 'none'; // 레버리지 입력란 숨김
+            }
+        }
+
+        function formatNumber(value, isCoinQuantity = false) {
+            if (isCoinQuantity) {
+                return value.toFixed(3); // 항상 소수점 3자리로 반환
+            }
+            return Math.floor(value); // 소수점 없이 정수로 반환
+        }
+
+        function calculatePosition() {
+            const entryPrice = parseFloat(document.getElementById("entryPrice").value);
+            const stopLoss = parseFloat(document.getElementById("stopLoss").value);
+            const targetProfit = parseFloat(document.getElementById("targetProfit").value);
+            const riskAmount = parseFloat(document.getElementById("riskAmount").value);
+            const riskPercent = parseFloat(document.getElementById("riskPercent").value);
+            const leverage = parseFloat(document.getElementById("leverage").value);
+            
+            // 감당 가능한 손실 입력 확인
+            if ((selectedRiskType === 'amount' && isNaN(riskAmount)) || 
+                (selectedRiskType === 'percent' && isNaN(riskPercent))) {
+                document.getElementById("resultPosition").innerText = 
+                    '감당 가능한 손실은 금액 또는 퍼센트 중에 하나만 입력해주세요.';
+                return;
+            }
+
+            // 입력값 오류 체크
+            if (selectedPosition === 'long') {
+                if (stopLoss >= entryPrice) {
+                    document.getElementById("resultPosition").innerText = 
+                        '진입가보다 손절가가 높거나 같습니다!';
+                    return;
+                }
+                if (targetProfit < entryPrice) {
+                    document.getElementById("resultPosition").innerText = 
+                        '진입가보다 목표가가 낮습니다! 숏 포지션으로 변경해주세요.';
+                    return;
+                }
+            } else if (selectedPosition === 'short') {
+                if (stopLoss <= entryPrice) {
+                    document.getElementById("resultPosition").innerText = 
+                        '진입가보다 손절가가 낮거나 같습니다!';
+                    return;
+                }
+                if (targetProfit > entryPrice) {
+                    document.getElementById("resultPosition").innerText = 
+                        '진입가보다 목표가가 높습니다! 롱 포지션으로 변경해주세요.';
+                    return;
+                }
+            }
+
+            let calculatedRiskAmount;
+            let lossPercent, profitPercent, leverageNeeded;
+
+            // 퍼센트로 입력된 경우 감당 가능한 손실 계산
+            if (selectedRiskType === 'percent' && riskPercent > 0) {
+                const priceMovement = entryPrice - stopLoss; // 손실 금액
+                lossPercent = Math.abs(priceMovement / entryPrice) * 100; // 손실 비율
+                leverageNeeded = riskPercent / lossPercent; // 필요한 레버리지 계산
+
+                // 손실금액 계산
+                calculatedRiskAmount = (entryPrice * leverageNeeded) * (riskPercent / 100);
+            } else {
+                calculatedRiskAmount = riskAmount;
+            }
+
+            // 포지션 규모 계산
+            const priceMovement = entryPrice - stopLoss; // 손실 금액
+            const positionSizeAmount = calculatedRiskAmount / Math.abs(priceMovement); // 코인 수량
+
+            // 익절 시 수익금 계산
+            const profitAmount = (selectedPosition === "long") ? 
+                (targetProfit - entryPrice) * positionSizeAmount : 
+                (entryPrice - targetProfit) * positionSizeAmount;
+
+            // 손실 및 수익 퍼센트 계산
+            const investmentAmount = (positionSizeAmount * entryPrice) / leverage; // 레버리지 반영한 실 투자 금액
+            if (selectedRiskType === 'percent') {
+                // 퍼센트가 입력된 경우
+                lossPercent = -riskPercent; // 손절 시 손실 퍼센트
+                const targetPriceMovement = (selectedPosition === "long") ? 
+                    (targetProfit - entryPrice) : 
+                    (entryPrice - targetProfit); // 목표가에 따른 가격 변동
+                const targetProfitPercent = (targetPriceMovement / entryPrice) * 100; // 목표가에 대한 퍼센트
+                profitPercent = targetProfitPercent * leverageNeeded; // 익절 시 수익 퍼센트
+
+                // 결과 출력
+                document.getElementById("resultPosition").innerText = 
+                    `손절 시 손실 퍼센트: ${lossPercent.toFixed(2)} %\n` +
+                    `익절 시 수익 퍼센트: ${profitPercent.toFixed(2)} %\n` +
+                    `계산된 실배율(레버리지): ${leverageNeeded.toFixed(2)} 배`;
+            } else {
+                // 금액이 입력된 경우
+                const lossPercent = -(calculatedRiskAmount / investmentAmount) * 100; // 손절 시 손실 퍼센트
+                profitPercent = (profitAmount / investmentAmount) * 100; // 익절 시 수익 퍼센트
+
+                // 결과 출력
+                document.getElementById("resultPosition").innerText = 
+                    `진입 수량(Qty): ${formatNumber(positionSizeAmount, true)} (코인 수량)\n` +
+                    `진입 금액(USDT 기준): ${Math.floor(positionSizeAmount * entryPrice)} USDT\n` +
+                    `실 투자금액: ${Math.floor(investmentAmount)} USDT\n` +
+                    `손절 시 손실 퍼센트: ${lossPercent.toFixed(2)} %\n` +
+                    `익절 시 수익 퍼센트: ${profitPercent.toFixed(2)} %\n` + // 익절 시 수익 퍼센트
+                    `익절 시 수익금: ${profitAmount.toFixed(2)} USDT`;
+            }
+        }
+    </script>
+</body>
+</html>
